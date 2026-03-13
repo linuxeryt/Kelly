@@ -1,18 +1,22 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-const navItems = [
-  { href: "/dashboard", label: "数据概览", icon: "📊" },
-  { href: "/advertisers", label: "广告主管理", icon: "👥" },
-  { href: "/campaigns", label: "广告计划", icon: "📋" },
-  { href: "/creatives", label: "创意素材库", icon: "🎨" },
-  { href: "/billing", label: "充值 & 账单", icon: "💳" },
-  { href: "/reports", label: "报告中心", icon: "📈" },
-];
+import { usePathname, useRouter } from "next/navigation";
+import { useUser } from "@/contexts/UserContext";
+import { getVisibleMenus } from "@/lib/permissions";
+import { roleLabels } from "@/lib/mockData";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { currentUser, logout } = useUser();
+
+  // 获取当前用户可见的菜单
+  const visibleMenus = currentUser ? getVisibleMenus(currentUser.role) : [];
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
 
   return (
     <aside
@@ -76,7 +80,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
-        {navItems.map((item) => {
+        {visibleMenus.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
@@ -114,44 +118,64 @@ export default function Sidebar() {
           borderTop: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #FE2C55, #25F4EE)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 14,
-              fontWeight: 700,
-              color: "white",
-            }}
-          >
-            A
-          </div>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#e0e0f0" }}>
-              代理商管理员
+        {currentUser ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #FE2C55, #25F4EE)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 14,
+                fontWeight: 700,
+                color: "white",
+              }}
+            >
+              {currentUser.username.charAt(0)}
             </div>
-            <div style={{ fontSize: 10, color: "#6666aa" }}>admin@agency.com</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#e0e0f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {currentUser.username}
+              </div>
+              <div style={{ fontSize: 10, color: "#6666aa" }}>
+                {roleLabels[currentUser.role]}
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              style={{
+                fontSize: 11,
+                color: "#6666aa",
+                background: "transparent",
+                padding: "4px 8px",
+                borderRadius: 4,
+                border: "1px solid rgba(255,255,255,0.08)",
+                cursor: "pointer",
+              }}
+            >
+              退出
+            </button>
           </div>
+        ) : (
           <Link
             href="/login"
             style={{
-              marginLeft: "auto",
-              fontSize: 11,
-              color: "#6666aa",
+              display: "block",
+              textAlign: "center",
+              fontSize: 12,
+              color: "#FE2C55",
               textDecoration: "none",
-              padding: "4px 8px",
-              borderRadius: 4,
-              border: "1px solid rgba(255,255,255,0.08)",
+              padding: "8px",
+              borderRadius: 6,
+              border: "1px solid rgba(254,44,85,0.3)",
             }}
           >
-            退出
+            请登录
           </Link>
-        </div>
+        )}
       </div>
     </aside>
   );

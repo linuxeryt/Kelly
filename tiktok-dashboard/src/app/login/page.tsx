@@ -1,26 +1,37 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@/contexts/UserContext";
+import { users, roleLabels } from "@/lib/mockData";
+import { roleColors } from "@/lib/permissions";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const { login } = useUser();
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError("请输入邮箱和密码");
+    if (!selectedUserId) {
+      setError("请选择登录用户");
+      return;
+    }
+    if (!password) {
+      setError("请输入密码");
       return;
     }
     setLoading(true);
     setError("");
     await new Promise((r) => setTimeout(r, 800));
+    login(selectedUserId);
     setLoading(false);
     router.push("/dashboard");
   };
+
+  const selectedUser = users.find((u) => u.id === selectedUserId);
 
   return (
     <div
@@ -201,19 +212,17 @@ export default function LoginPage() {
             欢迎登录
           </h3>
           <p style={{ fontSize: 13, color: "#6666aa", marginBottom: 28 }}>
-            请使用您的代理商账户凭证登录
+            选择您的账户并输入密码
           </p>
 
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom: 18 }}>
               <label style={{ fontSize: 12, color: "#9999bb", marginBottom: 6, display: "block", fontWeight: 500 }}>
-                邮箱地址
+                选择用户
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="agency@example.com"
+              <select
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "11px 14px",
@@ -224,12 +233,72 @@ export default function LoginPage() {
                   fontSize: 14,
                   outline: "none",
                   boxSizing: "border-box",
-                  transition: "border-color 0.2s",
+                  cursor: "pointer",
+                  appearance: "none",
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239999bb'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 12px center",
+                  backgroundSize: "16px",
                 }}
-                onFocus={(e) => (e.target.style.borderColor = "rgba(254,44,85,0.5)")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-              />
+              >
+                <option value="" style={{ background: "#14142a", color: "#6666aa" }}>请选择登录用户...</option>
+                {users.filter((u) => u.status === "active").map((user) => (
+                  <option key={user.id} value={user.id} style={{ background: "#14142a", color: "#e0e0f0" }}>
+                    {user.username} ({roleLabels[user.role]})
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {selectedUser && (
+              <div
+                style={{
+                  padding: "12px 14px",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 8,
+                  marginBottom: 18,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #FE2C55, #25F4EE)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: "white",
+                    }}
+                  >
+                    {selectedUser.username.charAt(0)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#e0e0f0" }}>
+                      {selectedUser.username}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#6666aa" }}>{selectedUser.email}</div>
+                  </div>
+                  <span
+                    style={{
+                      padding: "3px 10px",
+                      borderRadius: 20,
+                      fontSize: 10,
+                      fontWeight: 600,
+                      background: roleColors[selectedUser.role].bg,
+                      color: roleColors[selectedUser.role].color,
+                      border: `1px solid ${roleColors[selectedUser.role].border}`,
+                    }}
+                  >
+                    {roleLabels[selectedUser.role]}
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
@@ -316,7 +385,7 @@ export default function LoginPage() {
               lineHeight: 1.6,
             }}
           >
-            💡 提示：输入任意邮箱和密码即可进入演示平台
+            演示模式：选择用户后输入任意密码即可登录，不同角色可见不同菜单
           </div>
 
           <div style={{ marginTop: 20, textAlign: "center", fontSize: 11, color: "#4444660" }}>
