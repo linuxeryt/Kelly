@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
-import { getVisibleMenus } from "@/lib/permissions";
+import { getVisibleMenuGroups } from "@/lib/permissions";
 import { roleLabels } from "@/lib/mockData";
 
 export default function Sidebar() {
@@ -10,8 +10,8 @@ export default function Sidebar() {
   const router = useRouter();
   const { currentUser, logout } = useUser();
 
-  // 获取当前用户可见的菜单
-  const visibleMenus = currentUser ? getVisibleMenus(currentUser.role) : [];
+  // 获取当前用户可见的菜单分组
+  const visibleMenuGroups = currentUser ? getVisibleMenuGroups(currentUser.role) : [];
 
   const handleLogout = () => {
     logout();
@@ -37,42 +37,34 @@ export default function Sidebar() {
       {/* Logo */}
       <div
         style={{
-          padding: "24px 20px 20px",
+          padding: "20px 16px",
           borderBottom: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <img
+            src="/logo.png"
+            alt="PixelPro"
             style={{
-              width: 36,
-              height: 36,
-              background: "linear-gradient(135deg, #FE2C55, #010101)",
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 18,
-              boxShadow: "0 0 12px rgba(254,44,85,0.5)",
+              width: 44,
+              height: 44,
+              borderRadius: 10,
+              objectFit: "contain",
             }}
-          >
-            ♪
-          </div>
+          />
           <div>
             <div
               style={{
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: 700,
-                background: "linear-gradient(135deg, #FE2C55, #25F4EE)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-                letterSpacing: 0.5,
+                color: "#e0e0f0",
+                letterSpacing: 0.3,
               }}
             >
-              TikTok Agency
+              PixelPro
             </div>
-            <div style={{ fontSize: 10, color: "#6666aa", marginTop: 1 }}>
-              官方一级代理平台
+            <div style={{ fontSize: 10, color: "#6666aa", marginTop: 2 }}>
+              TikTok官方一级代理
             </div>
           </div>
         </div>
@@ -80,35 +72,53 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
-        {visibleMenus.map((item) => {
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
+        {visibleMenuGroups.map((group) => (
+          <div key={group.groupKey} style={{ marginBottom: 8 }}>
+            {/* 分组标题 */}
+            <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 14px",
-                borderRadius: 8,
-                marginBottom: 4,
-                textDecoration: "none",
-                color: active ? "#ffffff" : "#8888bb",
-                background: active
-                  ? "linear-gradient(135deg, rgba(254,44,85,0.2), rgba(37,244,238,0.08))"
-                  : "transparent",
-                borderLeft: active ? "3px solid #FE2C55" : "3px solid transparent",
-                fontWeight: active ? 600 : 400,
-                fontSize: 13,
-                transition: "all 0.2s",
+                padding: "8px 14px 6px",
+                fontSize: 10,
+                color: "#5555aa",
+                fontWeight: 600,
+                letterSpacing: 0.5,
+                textTransform: "uppercase",
               }}
             >
-              <span style={{ fontSize: 16 }}>{item.icon}</span>
-              {item.label}
-            </Link>
-          );
-        })}
+              {group.groupLabel}
+            </div>
+            {/* 分组菜单项 */}
+            {group.items.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "9px 14px",
+                    borderRadius: 8,
+                    marginBottom: 2,
+                    textDecoration: "none",
+                    color: active ? "#ffffff" : "#8888bb",
+                    background: active
+                      ? "linear-gradient(135deg, rgba(254,44,85,0.2), rgba(37,244,238,0.08))"
+                      : "transparent",
+                    borderLeft: active ? "3px solid #FE2C55" : "3px solid transparent",
+                    fontWeight: active ? 600 : 400,
+                    fontSize: 13,
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <span style={{ fontSize: 15 }}>{item.icon}</span>
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* User info */}

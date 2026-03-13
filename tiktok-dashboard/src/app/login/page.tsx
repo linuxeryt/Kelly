@@ -84,36 +84,28 @@ export default function LoginPage() {
           className="hidden md:flex"
         >
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 48 }}>
-            <div
+            <img
+              src="/logo.png"
+              alt="PixelPro"
               style={{
                 width: 52,
                 height: 52,
-                background: "linear-gradient(135deg, #FE2C55, #010101)",
                 borderRadius: 12,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 26,
-                boxShadow: "0 0 24px rgba(254,44,85,0.5)",
+                objectFit: "contain",
               }}
-            >
-              ♪
-            </div>
+            />
             <div>
               <div
                 style={{
                   fontSize: 22,
                   fontWeight: 800,
-                  background: "linear-gradient(135deg, #FE2C55, #25F4EE)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
+                  color: "#e0e0f0",
                 }}
               >
-                TikTok Agency
+                PixelPro
               </div>
               <div style={{ fontSize: 12, color: "#6666aa", marginTop: 2 }}>
-                官方一级代理商平台
+                TikTok官方一级代理商
               </div>
             </div>
           </div>
@@ -176,33 +168,25 @@ export default function LoginPage() {
         >
           {/* Mobile logo */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
-            <div
+            <img
+              src="/logo.png"
+              alt="PixelPro"
               style={{
                 width: 40,
                 height: 40,
-                background: "linear-gradient(135deg, #FE2C55, #010101)",
                 borderRadius: 10,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 20,
-                boxShadow: "0 0 16px rgba(254,44,85,0.4)",
+                objectFit: "contain",
               }}
-            >
-              ♪
-            </div>
+            />
             <div>
               <div
                 style={{
                   fontSize: 16,
                   fontWeight: 700,
-                  background: "linear-gradient(135deg, #FE2C55, #25F4EE)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
+                  color: "#e0e0f0",
                 }}
               >
-                TikTok Agency Hub
+                PixelPro
               </div>
               <div style={{ fontSize: 11, color: "#6666aa" }}>代理商管理后台</div>
             </div>

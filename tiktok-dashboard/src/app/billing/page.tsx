@@ -3,14 +3,52 @@ import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { billingRecords, advertisers } from "@/lib/mockData";
 
+type BalanceFilter = "all" | "low" | "critical" | "warning";
+
 export default function BillingPage() {
   const [tab, setTab] = useState<"records" | "balances">("records");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
+  const [customThreshold, setCustomThreshold] = useState("");
   const [showRecharge, setShowRecharge] = useState(false);
   const [amount, setAmount] = useState("");
   const [selectedAdv, setSelectedAdv] = useState("");
 
   const filteredRecords = billingRecords.filter((r) => typeFilter === "all" || r.type === typeFilter);
+
+  // 低余额筛选逻辑
+  const getBalanceStatus = (balance: number, totalBudget: number) => {
+    const pct = (balance / totalBudget) * 100;
+    if (pct <= 10 || balance <= 5000) return "critical"; // 严重低余额
+    if (pct <= 20 || balance <= 10000) return "low"; // 低余额
+    if (pct <= 30) return "warning"; // 预警
+    return "normal";
+  };
+
+  const filteredAdvertisers = advertisers.filter((adv) => {
+    if (balanceFilter === "all") return true;
+    const status = getBalanceStatus(adv.balance, adv.totalBudget);
+    if (balanceFilter === "critical") return status === "critical";
+    if (balanceFilter === "low") return status === "critical" || status === "low";
+    if (balanceFilter === "warning") return status === "critical" || status === "low" || status === "warning";
+    return true;
+  }).filter((adv) => {
+    // 自定义阈值筛选
+    if (customThreshold) {
+      const threshold = parseInt(customThreshold);
+      return adv.balance <= threshold;
+    }
+    return true;
+  });
+
+  // 低余额统计
+  const lowBalanceStats = {
+    critical: advertisers.filter((a) => getBalanceStatus(a.balance, a.totalBudget) === "critical").length,
+    low: advertisers.filter((a) => getBalanceStatus(a.balance, a.totalBudget) === "low").length,
+    warning: advertisers.filter((a) => getBalanceStatus(a.balance, a.totalBudget) === "warning").length,
+  };
+  const totalLowBalance = lowBalanceStats.critical + lowBalanceStats.low;
+
   const totalRecharge = billingRecords.filter((r) => r.type === "充值").reduce((s, r) => s + r.amount, 0);
   const totalConsume = billingRecords.filter((r) => r.type === "消耗").reduce((s, r) => s + Math.abs(r.amount), 0);
   const totalBalance = advertisers.reduce((s, a) => s + a.balance, 0);
@@ -69,6 +107,25 @@ export default function BillingPage() {
         </div>
       </div>
 
+      {/* Low Balance Alert - 仅在账户余额tab显示 */}
+      {tab === "balances" && totalLowBalance > 0 && (
+        <div style={{ background: "rgba(254,44,85,0.08)", border: "1px solid rgba(254,44,85,0.2)", borderRadius: 10, padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 20 }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <span style={{ color: "#FE2C55", fontWeight: 600, fontSize: 13 }}>低余额预警：</span>
+            <span style={{ color: "#e0e0f0", fontSize: 13, marginLeft: 6 }}>
+              当前有 <span style={{ color: "#FE2C55", fontWeight: 700 }}>{lowBalanceStats.critical}</span> 个账户余额严重不足，
+              <span style={{ color: "#ffc107", fontWeight: 700 }}>{lowBalanceStats.low}</span> 个账户余额偏低，请及时充值
+            </span>
+          </div>
+          <button
+            onClick={() => setBalanceFilter("low")}
+            style={{ padding: "6px 14px", background: "rgba(254,44,85,0.15)", border: "1px solid rgba(254,44,85,0.3)", borderRadius: 6, color: "#FE2C55", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>
+            查看低余额账户
+          </button>
+        </div>
+      )}
+
       {/* Records table */}
       {tab === "records" && (
         <div style={{ background: "rgba(20,20,40,0.8)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden" }}>
@@ -108,51 +165,122 @@ export default function BillingPage() {
 
       {/* Balances tab */}
       {tab === "balances" && (
-        <div style={{ background: "rgba(20,20,40,0.8)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-                {["广告主", "当前余额", "预算总额", "余额占比", "今日消耗", "状态", "操作"].map((h) => (
-                  <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#6666aa", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {advertisers.map((adv) => {
-                const pct = (adv.balance / adv.totalBudget) * 100;
-                const color = pct > 50 ? "#25F4EE" : pct > 20 ? "#ffc107" : "#FE2C55";
-                return (
-                  <tr key={adv.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                    <td style={{ padding: "13px 16px", fontSize: 13, color: "#e0e0f0", fontWeight: 500 }}>{adv.name}</td>
-                    <td style={{ padding: "13px 16px", fontSize: 16, fontWeight: 700, color }}>¥{adv.balance.toLocaleString()}</td>
-                    <td style={{ padding: "13px 16px", fontSize: 12, color: "#8888bb" }}>¥{adv.totalBudget.toLocaleString()}</td>
-                    <td style={{ padding: "13px 16px", minWidth: 150 }}>
-                      <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 3 }} />
-                      </div>
-                      <div style={{ fontSize: 11, color, marginTop: 3 }}>{pct.toFixed(1)}%</div>
-                    </td>
-                    <td style={{ padding: "13px 16px", fontSize: 13, color: adv.todaySpend > 0 ? "#FE2C55" : "#6666aa" }}>
-                      {adv.todaySpend > 0 ? `¥${adv.todaySpend.toLocaleString()}` : "—"}
-                    </td>
-                    <td style={{ padding: "13px 16px" }}>
-                      <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: adv.status === "active" ? "rgba(37,244,238,0.12)" : "rgba(255,255,255,0.06)", color: adv.status === "active" ? "#25F4EE" : "#8888bb", border: `1px solid ${adv.status === "active" ? "rgba(37,244,238,0.25)" : "rgba(255,255,255,0.1)"}` }}>
-                        {adv.status === "active" ? "正常" : adv.status === "paused" ? "暂停" : "未激活"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "13px 16px" }}>
-                      <button style={{ padding: "5px 14px", background: "linear-gradient(135deg, #FE2C55, #c9003e)", border: "none", borderRadius: 5, color: "white", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
-                        充值
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* 余额筛选栏 */}
+          <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 6, background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 3 }}>
+              {[
+                { v: "all" as BalanceFilter, l: "全部", count: advertisers.length },
+                { v: "critical" as BalanceFilter, l: "严重不足", count: lowBalanceStats.critical, color: "#FE2C55" },
+                { v: "low" as BalanceFilter, l: "余额偏低", count: lowBalanceStats.low, color: "#ffc107" },
+                { v: "warning" as BalanceFilter, l: "预警", count: lowBalanceStats.warning, color: "#25F4EE" },
+              ].map((btn) => (
+                <button key={btn.v} onClick={() => setBalanceFilter(btn.v)}
+                  style={{
+                    padding: "7px 14px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: balanceFilter === btn.v ? "linear-gradient(135deg, #FE2C55, #c9003e)" : "transparent",
+                    color: balanceFilter === btn.v ? "white" : (btn.color || "#8888bb"),
+                    fontSize: 12,
+                    cursor: "pointer",
+                    fontWeight: balanceFilter === btn.v ? 600 : 400,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}>
+                  {btn.l}
+                  <span style={{
+                    background: balanceFilter === btn.v ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
+                    padding: "1px 6px",
+                    borderRadius: 10,
+                    fontSize: 10,
+                  }}>
+                    {btn.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* 自定义阈值筛选 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+              <span style={{ fontSize: 12, color: "#8888bb" }}>余额 ≤</span>
+              <input
+                type="number"
+                value={customThreshold}
+                onChange={(e) => setCustomThreshold(e.target.value)}
+                placeholder="输入金额"
+                style={{ width: 100, padding: "6px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "#e0e0f0", fontSize: 12, outline: "none" }}
+              />
+              <span style={{ fontSize: 12, color: "#8888bb" }}>元</span>
+              {customThreshold && (
+                <button
+                  onClick={() => setCustomThreshold("")}
+                  style={{ padding: "4px 8px", background: "rgba(255,255,255,0.05)", border: "none", borderRadius: 4, color: "#8888bb", fontSize: 11, cursor: "pointer" }}>
+                  清除
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 余额表格 */}
+          <div style={{ background: "rgba(20,20,40,0.8)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                  {["广告主", "当前余额", "预算总额", "余额占比", "今日消耗", "状态", "操作"].map((h) => (
+                    <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: "#6666aa", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAdvertisers.map((adv) => {
+                  const pct = (adv.balance / adv.totalBudget) * 100;
+                  const balanceStatus = getBalanceStatus(adv.balance, adv.totalBudget);
+                  const color = balanceStatus === "critical" ? "#FE2C55" : balanceStatus === "low" ? "#ffc107" : balanceStatus === "warning" ? "#25F4EE" : "#25F4EE";
+                  return (
+                    <tr key={adv.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      background: balanceStatus === "critical" ? "rgba(254,44,85,0.05)" : balanceStatus === "low" ? "rgba(255,193,7,0.03)" : "transparent" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = balanceStatus === "critical" ? "rgba(254,44,85,0.08)" : balanceStatus === "low" ? "rgba(255,193,7,0.06)" : "rgba(255,255,255,0.02)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = balanceStatus === "critical" ? "rgba(254,44,85,0.05)" : balanceStatus === "low" ? "rgba(255,193,7,0.03)" : "transparent")}>
+                      <td style={{ padding: "13px 16px", fontSize: 13, color: "#e0e0f0", fontWeight: 500 }}>
+                        {adv.name}
+                        {balanceStatus === "critical" && <span style={{ marginLeft: 8, fontSize: 11, color: "#FE2C55" }}>⚠️ 急需充值</span>}
+                        {balanceStatus === "low" && <span style={{ marginLeft: 8, fontSize: 11, color: "#ffc107" }}>⚡ 需充值</span>}
+                      </td>
+                      <td style={{ padding: "13px 16px", fontSize: 16, fontWeight: 700, color }}>¥{adv.balance.toLocaleString()}</td>
+                      <td style={{ padding: "13px 16px", fontSize: 12, color: "#8888bb" }}>¥{adv.totalBudget.toLocaleString()}</td>
+                      <td style={{ padding: "13px 16px", minWidth: 150 }}>
+                        <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: color, borderRadius: 3 }} />
+                        </div>
+                        <div style={{ fontSize: 11, color, marginTop: 3 }}>{pct.toFixed(1)}%</div>
+                      </td>
+                      <td style={{ padding: "13px 16px", fontSize: 13, color: adv.todaySpend > 0 ? "#FE2C55" : "#6666aa" }}>
+                        {adv.todaySpend > 0 ? `¥${adv.todaySpend.toLocaleString()}` : "—"}
+                      </td>
+                      <td style={{ padding: "13px 16px" }}>
+                        <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: adv.status === "active" ? "rgba(37,244,238,0.12)" : "rgba(255,255,255,0.06)", color: adv.status === "active" ? "#25F4EE" : "#8888bb", border: `1px solid ${adv.status === "active" ? "rgba(37,244,238,0.25)" : "rgba(255,255,255,0.1)"}` }}>
+                          {adv.status === "active" ? "正常" : adv.status === "paused" ? "暂停" : "未激活"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "13px 16px" }}>
+                        <button style={{ padding: "5px 14px", background: "linear-gradient(135deg, #FE2C55, #c9003e)", border: "none", borderRadius: 5, color: "white", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
+                          充值
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {filteredAdvertisers.length === 0 && (
+              <div style={{ padding: 40, textAlign: "center", color: "#6666aa", fontSize: 13 }}>
+                暂无符合条件的账户
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Recharge modal */}

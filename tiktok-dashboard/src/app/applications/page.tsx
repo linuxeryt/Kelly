@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useUser } from "@/contexts/UserContext";
 import {
@@ -12,6 +12,10 @@ import {
   advertisers,
   businessCenters,
   users,
+  IDType,
+  EnterpriseType,
+  DeliveryMethod,
+  Currency,
 } from "@/lib/mockData";
 import { hasPermission } from "@/lib/permissions";
 
@@ -41,6 +45,43 @@ function MediaStatusBadge({ status }: { status: MediaReviewStatus }) {
   );
 }
 
+// 时区选项
+const timezoneOptions = [
+  { value: "Asia/Shanghai", label: "中国标准时间 (UTC+8)" },
+  { value: "Asia/Tokyo", label: "日本标准时间 (UTC+9)" },
+  { value: "Asia/Singapore", label: "新加坡时间 (UTC+8)" },
+  { value: "America/Los_Angeles", label: "美国太平洋时间 (UTC-8/-7)" },
+  { value: "America/New_York", label: "美国东部时间 (UTC-5/-4)" },
+  { value: "Europe/London", label: "英国时间 (UTC+0/+1)" },
+  { value: "Europe/Paris", label: "欧洲中部时间 (UTC+1/+2)" },
+];
+
+// 行业选项
+const industryOptions = [
+  "服装零售", "化妆品零售", "电子产品零售", "食品零售", "母婴用品",
+  "家居装饰", "运动户外", "宠物用品", "教育培训", "金融服务",
+  "医疗健康", "旅游出行", "餐饮美食", "娱乐休闲", "其他"
+];
+
+// 注册地区选项
+const regionOptions = [
+  "北京市", "上海市", "广东省深圳市", "广东省广州市", "浙江省杭州市",
+  "浙江省宁波市", "江苏省南京市", "江苏省苏州市", "四川省成都市",
+  "湖北省武汉市", "福建省厦门市", "山东省青岛市", "其他"
+];
+
+const idTypeOptions: IDType[] = ["身份证", "护照", "港澳通行证", "台湾通行证"];
+const enterpriseTypeOptions: EnterpriseType[] = ["个体工商户", "有限责任公司", "股份有限公司", "个人独资企业", "合伙企业", "其他"];
+const deliveryMethodOptions: DeliveryMethod[] = ["自助投放", "代运营投放"];
+const currencyOptions: { value: Currency; label: string }[] = [
+  { value: "CNY", label: "人民币 (CNY)" },
+  { value: "USD", label: "美元 (USD)" },
+  { value: "EUR", label: "欧元 (EUR)" },
+  { value: "GBP", label: "英镑 (GBP)" },
+  { value: "JPY", label: "日元 (JPY)" },
+  { value: "HKD", label: "港币 (HKD)" },
+];
+
 export default function ApplicationsPage() {
   const { currentUser } = useUser();
   const [applications, setApplications] = useState<AccountApplication[]>(initialApplications);
@@ -48,18 +89,38 @@ export default function ApplicationsPage() {
   const [internalFilter, setInternalFilter] = useState<InternalReviewStatus | "all">("all");
   const [mediaFilter, setMediaFilter] = useState<MediaReviewStatus | "all">("all");
   const [showModal, setShowModal] = useState(false);
-  const [editingApp, setEditingApp] = useState<AccountApplication | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<AccountApplication | null>(null);
+
+  const businessLicenseRef = useRef<HTMLInputElement>(null);
+  const authorizationRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [formData, setFormData] = useState({
     companyName: "",
+    businessLicensePhoto: "",
+    unifiedSocialCreditCode: "",
+    region: "",
+    enterpriseType: "有限责任公司" as EnterpriseType,
+    industry: "",
+    legalPerson: "",
+    idType: "身份证" as IDType,
+    idNumber: "",
+    unionPayAccount: "",
+    contactPhone: "",
+    authorizationDocument: "",
     accountName: "",
+    timezone: "Asia/Shanghai",
+    currency: "CNY" as Currency,
+    deliveryMethod: "自助投放" as DeliveryMethod,
+    promotionLink: "",
     bcId: "",
     remark: "",
   });
 
-  const isAdvertiser = currentUser?.role === "advertiser";
+  const canCreate = currentUser ? hasPermission(currentUser.role, "applications", "create") : false;
   const canEdit = currentUser ? hasPermission(currentUser.role, "applications", "edit") : false;
+  const isAdvertiser = currentUser?.role === "advertiser";
 
   // 广告主只能看自己的申请
   const userAdvertiserId = isAdvertiser ? currentUser?.bindAdvertiserId : null;
@@ -85,34 +146,51 @@ export default function ApplicationsPage() {
     : businessCenters;
 
   const openCreateModal = () => {
-    setEditingApp(null);
     const advertiser = userAdvertiserId ? advertisers.find((a) => a.id === userAdvertiserId) : null;
     setFormData({
       companyName: advertiser?.companyName || "",
+      businessLicensePhoto: "",
+      unifiedSocialCreditCode: "",
+      region: "",
+      enterpriseType: "有限责任公司",
+      industry: "",
+      legalPerson: "",
+      idType: "身份证",
+      idNumber: "",
+      unionPayAccount: "",
+      contactPhone: "",
+      authorizationDocument: "",
       accountName: "",
+      timezone: "Asia/Shanghai",
+      currency: "CNY",
+      deliveryMethod: "自助投放",
+      promotionLink: "",
       bcId: "",
       remark: "",
     });
     setShowModal(true);
   };
 
+  const handleFileUpload = (field: "businessLicensePhoto" | "authorizationDocument", file: File) => {
+    // 模拟文件上传，实际项目中应调用API上传
+    const fakeUrl = `/uploads/${file.name}`;
+    setFormData({ ...formData, [field]: fakeUrl });
+  };
+
   const handleSave = () => {
-    if (!formData.companyName || !formData.accountName || !formData.bcId) {
-      alert("请填写完整信息");
+    if (!formData.companyName || !formData.unifiedSocialCreditCode || !formData.accountName || !formData.bcId) {
+      alert("请填写必填信息");
       return;
     }
     const newApp: AccountApplication = {
       id: `APP${String(applications.length + 1).padStart(3, "0")}`,
       advertiserId: userAdvertiserId || "",
       applicantId: currentUser?.id || "",
-      companyName: formData.companyName,
-      accountName: formData.accountName,
-      bcId: formData.bcId,
+      ...formData,
       internalStatus: "pending",
       mediaStatus: "reviewing",
       createdAt: new Date().toISOString().replace("T", " ").slice(0, 16),
       updatedAt: new Date().toISOString().replace("T", " ").slice(0, 16),
-      remark: formData.remark || undefined,
     };
     setApplications([...applications, newApp]);
     setShowModal(false);
@@ -138,6 +216,11 @@ export default function ApplicationsPage() {
     );
   };
 
+  const viewDetail = (app: AccountApplication) => {
+    setSelectedApp(app);
+    setShowDetailModal(true);
+  };
+
   // Stats
   const stats = {
     total: filtered.length,
@@ -145,6 +228,70 @@ export default function ApplicationsPage() {
     approved: filtered.filter((a) => a.internalStatus === "approved").length,
     mediaApproved: filtered.filter((a) => a.mediaStatus === "approved").length,
   };
+
+  // 表单输入组件
+  const FormInput = ({ label, required, ...props }: { label: string; required?: boolean } & React.InputHTMLAttributes<HTMLInputElement>) => (
+    <div>
+      <label style={{ fontSize: 12, color: "#9999bb", marginBottom: 6, display: "block" }}>
+        {label} {required && <span style={{ color: "#FE2C55" }}>*</span>}
+      </label>
+      <input
+        {...props}
+        style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#e0e0f0", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+      />
+    </div>
+  );
+
+  const FormSelect = ({ label, required, options, ...props }: { label: string; required?: boolean; options: { value: string; label: string }[] | string[] } & React.SelectHTMLAttributes<HTMLSelectElement>) => (
+    <div>
+      <label style={{ fontSize: 12, color: "#9999bb", marginBottom: 6, display: "block" }}>
+        {label} {required && <span style={{ color: "#FE2C55" }}>*</span>}
+      </label>
+      <select
+        {...props}
+        style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#e0e0f0", fontSize: 14, outline: "none", cursor: "pointer", boxSizing: "border-box" }}
+      >
+        <option value="">请选择...</option>
+        {options.map((opt) => (
+          <option key={typeof opt === "string" ? opt : opt.value} value={typeof opt === "string" ? opt : opt.value}>
+            {typeof opt === "string" ? opt : opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const FormFileUpload = ({ label, required, field, accept, fileRef }: { label: string; required?: boolean; field: "businessLicensePhoto" | "authorizationDocument"; accept: string; fileRef: React.RefObject<HTMLInputElement | null> }) => (
+    <div>
+      <label style={{ fontSize: 12, color: "#9999bb", marginBottom: 6, display: "block" }}>
+        {label} {required && <span style={{ color: "#FE2C55" }}>*</span>}
+      </label>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          style={{ padding: "10px 18px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "#e0e0f0", fontSize: 13, cursor: "pointer" }}
+        >
+          选择文件
+        </button>
+        {formData[field] && (
+          <span style={{ fontSize: 12, color: "#25F4EE" }}>
+            {formData[field].split("/").pop()}
+          </span>
+        )}
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={accept}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFileUpload(field, file);
+        }}
+        style={{ display: "none" }}
+      />
+    </div>
+  );
 
   return (
     <DashboardLayout title="开户申请">
@@ -191,7 +338,7 @@ export default function ApplicationsPage() {
           <option value="approved">通过审核</option>
           <option value="rejected">未通过审核</option>
         </select>
-        {isAdvertiser && (
+        {canCreate && (
           <button onClick={openCreateModal} style={{ marginLeft: "auto", padding: "9px 18px", background: "linear-gradient(135deg, #FE2C55, #c9003e)", border: "none", borderRadius: 8, color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 12px rgba(254,44,85,0.3)" }}>
             + 提交开户申请
           </button>
@@ -203,7 +350,7 @@ export default function ApplicationsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-              {["申请编号", !isAdvertiser && "广告主", "开户主体", "申请人", "广告账户名称", "BC ID", "内部审核", "媒体状态", "申请时间", canEdit && "操作"].filter(Boolean).map((h) => (
+              {["申请编号", !isAdvertiser && "广告主", "开户主体", "申请人", "广告账户名称", "投放方式", "BC ID", "内部审核", "媒体状态", "申请时间", "操作"].filter(Boolean).map((h) => (
                 <th key={String(h)} style={{ padding: "12px 14px", textAlign: "left", fontSize: 11, color: "#6666aa", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.05)", whiteSpace: "nowrap" }}>
                   {h}
                 </th>
@@ -218,6 +365,7 @@ export default function ApplicationsPage() {
                 <td style={{ padding: "12px 14px", fontSize: 13, color: "#e0e0f0" }}>{app.companyName}</td>
                 <td style={{ padding: "12px 14px", fontSize: 12, color: "#a855f7" }}>{getApplicantName(app.applicantId)}</td>
                 <td style={{ padding: "12px 14px", fontSize: 13, color: "#e0e0f0", fontWeight: 500 }}>{app.accountName}</td>
+                <td style={{ padding: "12px 14px", fontSize: 12, color: "#9999bb" }}>{app.deliveryMethod}</td>
                 <td style={{ padding: "12px 14px", fontSize: 11, color: "#6666aa", fontFamily: "monospace" }}>{app.bcId}</td>
                 <td style={{ padding: "12px 14px" }}>
                   {canEdit ? (
@@ -250,20 +398,28 @@ export default function ApplicationsPage() {
                   )}
                 </td>
                 <td style={{ padding: "12px 14px", fontSize: 11, color: "#6666aa" }}>{app.createdAt}</td>
-                {canEdit && (
-                  <td style={{ padding: "12px 14px" }}>
+                <td style={{ padding: "12px 14px" }}>
+                  <div style={{ display: "flex", gap: 8 }}>
                     <button
-                      onClick={() => {
-                        if (confirm(`确定删除申请 ${app.id} 吗？`)) {
-                          setApplications(applications.filter((a) => a.id !== app.id));
-                        }
-                      }}
-                      style={{ padding: "4px 10px", background: "rgba(254,44,85,0.1)", border: "1px solid rgba(254,44,85,0.25)", borderRadius: 4, color: "#FE2C55", fontSize: 11, cursor: "pointer" }}
+                      onClick={() => viewDetail(app)}
+                      style={{ padding: "4px 10px", background: "rgba(37,244,238,0.1)", border: "1px solid rgba(37,244,238,0.25)", borderRadius: 4, color: "#25F4EE", fontSize: 11, cursor: "pointer" }}
                     >
-                      删除
+                      详情
                     </button>
-                  </td>
-                )}
+                    {canEdit && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`确定删除申请 ${app.id} 吗？`)) {
+                            setApplications(applications.filter((a) => a.id !== app.id));
+                          }
+                        }}
+                        style={{ padding: "4px 10px", background: "rgba(254,44,85,0.1)", border: "1px solid rgba(254,44,85,0.25)", borderRadius: 4, color: "#FE2C55", fontSize: 11, cursor: "pointer" }}
+                      >
+                        删除
+                      </button>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -277,46 +433,58 @@ export default function ApplicationsPage() {
 
       {/* Create Modal */}
       {showModal && (
-        <div onClick={() => setShowModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "#14142a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: "28px 32px", width: 480 }}>
+        <div onClick={() => setShowModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)", overflowY: "auto", padding: "20px 0" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#14142a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: "28px 32px", width: 720, maxHeight: "90vh", overflowY: "auto" }}>
             <h3 style={{ fontSize: 18, fontWeight: 700, color: "#e0e0f0", marginBottom: 24, marginTop: 0 }}>提交开户申请</h3>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div>
-                <label style={{ fontSize: 12, color: "#9999bb", marginBottom: 6, display: "block" }}>开户主体 *</label>
-                <input
-                  type="text"
-                  value={formData.companyName}
-                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                  placeholder="请输入开户主体（公司名称）"
-                  style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#e0e0f0", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                />
+              {/* 企业信息 */}
+              <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "#25F4EE", marginBottom: 12 }}>企业信息</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <FormInput label="开户主体（企业名称）" required value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} placeholder="请输入企业名称" />
+                  <FormInput label="统一社会信用代码" required value={formData.unifiedSocialCreditCode} onChange={(e) => setFormData({ ...formData, unifiedSocialCreditCode: e.target.value })} placeholder="请输入统一社会信用代码" />
+                  <FormFileUpload label="营业执照" required field="businessLicensePhoto" accept="image/*,.pdf" fileRef={businessLicenseRef} />
+                  <FormSelect label="注册地区" required options={regionOptions} value={formData.region} onChange={(e) => setFormData({ ...formData, region: e.target.value })} />
+                  <FormSelect label="企业类型" required options={enterpriseTypeOptions} value={formData.enterpriseType} onChange={(e) => setFormData({ ...formData, enterpriseType: e.target.value as EnterpriseType })} />
+                  <FormSelect label="所属行业" required options={industryOptions} value={formData.industry} onChange={(e) => setFormData({ ...formData, industry: e.target.value })} />
+                </div>
               </div>
-              <div>
-                <label style={{ fontSize: 12, color: "#9999bb", marginBottom: 6, display: "block" }}>广告账户名称 *</label>
-                <input
-                  type="text"
-                  value={formData.accountName}
-                  onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
-                  placeholder="请输入广告账户名称"
-                  style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#e0e0f0", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                />
+
+              {/* 法人信息 */}
+              <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "#25F4EE", marginBottom: 12 }}>法人信息</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <FormInput label="法定代表人" required value={formData.legalPerson} onChange={(e) => setFormData({ ...formData, legalPerson: e.target.value })} placeholder="请输入法定代表人姓名" />
+                  <FormSelect label="证件类型" required options={idTypeOptions} value={formData.idType} onChange={(e) => setFormData({ ...formData, idType: e.target.value as IDType })} />
+                  <FormInput label="法人证件号码" required value={formData.idNumber} onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })} placeholder="请输入证件号码" />
+                </div>
               </div>
-              <div>
-                <label style={{ fontSize: 12, color: "#9999bb", marginBottom: 6, display: "block" }}>BC ID *</label>
-                <select
-                  value={formData.bcId}
-                  onChange={(e) => setFormData({ ...formData, bcId: e.target.value })}
-                  style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#e0e0f0", fontSize: 14, outline: "none", cursor: "pointer" }}
-                >
-                  <option value="">请选择BC...</option>
-                  {availableBCs.map((bc) => (
-                    <option key={bc.id} value={bc.id}>
-                      {bc.id} - {bc.name}
-                    </option>
-                  ))}
-                </select>
+
+              {/* 结算信息 */}
+              <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "#25F4EE", marginBottom: 12 }}>结算信息</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <FormInput label="银联账号" required value={formData.unionPayAccount} onChange={(e) => setFormData({ ...formData, unionPayAccount: e.target.value })} placeholder="请输入银联账号" />
+                  <FormInput label="手机号码" required value={formData.contactPhone} onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })} placeholder="请输入手机号码" />
+                  <FormFileUpload label="对外敏感信息授权书" field="authorizationDocument" accept="image/*,.pdf" fileRef={authorizationRef} />
+                </div>
               </div>
+
+              {/* 广告账户信息 */}
+              <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "#25F4EE", marginBottom: 12 }}>广告账户信息</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <FormInput label="广告账户名称" required value={formData.accountName} onChange={(e) => setFormData({ ...formData, accountName: e.target.value })} placeholder="请输入广告账户名称" />
+                  <FormSelect label="BC ID" required options={availableBCs.map((bc) => ({ value: bc.id, label: `${bc.id} - ${bc.name}` }))} value={formData.bcId} onChange={(e) => setFormData({ ...formData, bcId: e.target.value })} />
+                  <FormSelect label="广告账户时区" required options={timezoneOptions} value={formData.timezone} onChange={(e) => setFormData({ ...formData, timezone: e.target.value })} />
+                  <FormSelect label="广告结算币种" required options={currencyOptions} value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value as Currency })} />
+                  <FormSelect label="投放方式" required options={deliveryMethodOptions} value={formData.deliveryMethod} onChange={(e) => setFormData({ ...formData, deliveryMethod: e.target.value as DeliveryMethod })} />
+                  <FormInput label="推广链接" required value={formData.promotionLink} onChange={(e) => setFormData({ ...formData, promotionLink: e.target.value })} placeholder="https://example.com" />
+                </div>
+              </div>
+
+              {/* 备注 */}
               <div>
                 <label style={{ fontSize: 12, color: "#9999bb", marginBottom: 6, display: "block" }}>备注</label>
                 <textarea
@@ -340,6 +508,105 @@ export default function ApplicationsPage() {
           </div>
         </div>
       )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedApp && (
+        <div onClick={() => setShowDetailModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)", overflowY: "auto", padding: "20px 0" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#14142a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: "28px 32px", width: 720, maxHeight: "90vh", overflowY: "auto" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#e0e0f0", marginBottom: 24, marginTop: 0 }}>申请详情 - {selectedApp.id}</h3>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* 企业信息 */}
+              <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "#25F4EE", marginBottom: 12 }}>企业信息</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <DetailItem label="开户主体" value={selectedApp.companyName} />
+                  <DetailItem label="统一社会信用代码" value={selectedApp.unifiedSocialCreditCode} />
+                  <DetailItem label="营业执照" value={selectedApp.businessLicensePhoto ? "已上传" : "未上传"} />
+                  <DetailItem label="注册地区" value={selectedApp.region} />
+                  <DetailItem label="企业类型" value={selectedApp.enterpriseType} />
+                  <DetailItem label="所属行业" value={selectedApp.industry} />
+                </div>
+              </div>
+
+              {/* 法人信息 */}
+              <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "#25F4EE", marginBottom: 12 }}>法人信息</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <DetailItem label="法定代表人" value={selectedApp.legalPerson} />
+                  <DetailItem label="证件类型" value={selectedApp.idType} />
+                  <DetailItem label="法人证件号码" value={selectedApp.idNumber} />
+                </div>
+              </div>
+
+              {/* 结算信息 */}
+              <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "#25F4EE", marginBottom: 12 }}>结算信息</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <DetailItem label="银联账号" value={selectedApp.unionPayAccount} />
+                  <DetailItem label="手机号码" value={selectedApp.contactPhone} />
+                  <DetailItem label="对外敏感信息授权书" value={selectedApp.authorizationDocument ? "已上传" : "未上传"} />
+                </div>
+              </div>
+
+              {/* 广告账户信息 */}
+              <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "#25F4EE", marginBottom: 12 }}>广告账户信息</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <DetailItem label="广告账户名称" value={selectedApp.accountName} />
+                  <DetailItem label="BC ID" value={selectedApp.bcId} />
+                  <DetailItem label="广告账户时区" value={timezoneOptions.find((t) => t.value === selectedApp.timezone)?.label || selectedApp.timezone} />
+                  <DetailItem label="广告结算币种" value={currencyOptions.find((c) => c.value === selectedApp.currency)?.label || selectedApp.currency} />
+                  <DetailItem label="投放方式" value={selectedApp.deliveryMethod} />
+                  <DetailItem label="推广链接" value={selectedApp.promotionLink} />
+                </div>
+              </div>
+
+              {/* 审核状态 */}
+              <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "#25F4EE", marginBottom: 12 }}>审核状态</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <span style={{ fontSize: 12, color: "#9999bb" }}>内部审核状态：</span>
+                    <InternalStatusBadge status={selectedApp.internalStatus} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 12, color: "#9999bb" }}>媒体审核状态：</span>
+                    <MediaStatusBadge status={selectedApp.mediaStatus} />
+                  </div>
+                  <DetailItem label="申请时间" value={selectedApp.createdAt} />
+                  <DetailItem label="更新时间" value={selectedApp.updatedAt} />
+                </div>
+              </div>
+
+              {selectedApp.remark && (
+                <div>
+                  <label style={{ fontSize: 12, color: "#9999bb", marginBottom: 6, display: "block" }}>备注</label>
+                  <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.05)", borderRadius: 8, color: "#e0e0f0", fontSize: 14 }}>
+                    {selectedApp.remark}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: 12, marginTop: 28, justifyContent: "flex-end" }}>
+              <button onClick={() => setShowDetailModal(false)} style={{ padding: "10px 24px", background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "#9999bb", fontSize: 13, cursor: "pointer" }}>
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
+  );
+}
+
+// 详情展示组件
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span style={{ fontSize: 12, color: "#9999bb" }}>{label}：</span>
+      <span style={{ fontSize: 14, color: "#e0e0f0" }}>{value || "-"}</span>
+    </div>
   );
 }
